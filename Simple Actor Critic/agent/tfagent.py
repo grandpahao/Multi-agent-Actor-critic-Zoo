@@ -4,9 +4,10 @@ import tensorflow as tf
 
 
 class TFAgent(object):
-    def __init__(self, lr):
+    def __init__(self, n_ac, lr):
         self.optimizer = tf.train.AdamOptimizer(lr, epsilon=1.5e-4)
         self._logd_prepare()
+        self.n_ac = n_ac
         self._net_prepare()
 
     def _log_prepare(self):
