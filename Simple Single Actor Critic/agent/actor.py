@@ -18,12 +18,15 @@ class Actor(TFAgent):
 
         with tf.variable_scope('actor_accurate'):
             fc1 = self._net(self.input, trainable=True)
-            self.action = tf.layers.dense(fc1, self.n_ac, trainable=True)
+            action = tf.contrib.layers.fully_connected(
+                fc1, self.n_ac, trainable=True)
+            self.action_prob = tf.nn.softmax(action)
 
         with tf.variable_scope('actor_target'):
             fc1_target = self._net(self.input, trainable=False)
-            self.action_target = tf.layers.dense(
+            action_target = tf.contrib.layers.fully_connected(
                 fc1_target, self.n_ac, trainable=False)
+            self.target_action_prob = tf.nn.softmax(action_target)
 
         self.update_target_opr = self._update_target_opr()
 
@@ -35,7 +38,22 @@ class Actor(TFAgent):
             var_list=trainable_variables
         )
 
-    def update(self, ):
+    def update(self, input_batch, action_batch, advantage_batch):
+        _, total_t, actor_loss, actor_max_prob = self.sess.run(
+            [
+                self.train_opr,
+                tf.train.get_global_step(), self.loss, tf.max(self.action_target_prob)
+            ],
+            feed_dict={
+                self.input: input_batch,
+                self.action_select: action_batch,
+                self.advantage: advantage_batch
+            }
+        )
+        return total_t, {'actor_loss': actor_loss, 'actor_max_prob': actor_max_prob}
+
+    def get_prob(self, input_state):
+        return self.sess.run(self.target_action_prob, feed_dict={self.input: input_state})
 
     def _eval_loss(self):
         if self.n_ac > 1:
@@ -43,7 +61,7 @@ class Actor(TFAgent):
             gather_indices = tf.range(batch_size) * \
                 self.n_ac + self.action_select
             action_prob = tf.gather(tf.reshape(
-                self.action, [-1]), gather_indices)
+                self.action_prob, [-1]), gather_indices)
             # policy gradient should ascent
             ad_log_prob = tf.neg(tf.log(action_prob) * self.advantage)
             return tf.reduce_mean(ad_log_prob)

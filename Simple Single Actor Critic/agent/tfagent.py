@@ -4,7 +4,7 @@ import tensorflow as tf
 
 
 class TFAgent(object):
-    def __init__(self, n_ac, lr):
+    def __init__(self, n_ac=0, lr):
         self.optimizer = tf.train.AdamOptimizer(lr, epsilon=1.5e-4)
         self._logd_prepare()
         self.n_ac = n_ac
@@ -37,7 +37,7 @@ class TFAgent(object):
             conv2, 64, 3, 1, activation_fn=tf.nn.relu, trainable=trainable)
         )
         flat1=tf.reshape(conv3, shape = [None, 2048])
-        fc1=tf.layers.dense(
+        fc1=tf.contrib.layers.fully_connected(
             flat1, 256, activaion = tf.nn.relu, trainable = trainable)
         return fc1
 
