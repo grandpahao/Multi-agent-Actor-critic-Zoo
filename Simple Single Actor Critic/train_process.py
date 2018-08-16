@@ -44,4 +44,23 @@ def single_ac_train(env,
         next_states, rewards, dones, info = env.step(actions)
         memory_buffer.extend(zip(states, actions, rewards, next_states, dones))
 
-        critic.update(*memory_buffer.sample(batch_size))
+        cur_states, actions, rewards, next_states, dones = memory_buffer.critic_sample(
+            batch_size)
+        global_step, critic_summaries, advantages = critic.update(
+            cur_states, actions, rewards, next_states, dones)
+
+        _, actor_summaries = actor.update(cur_states, actions, advantages)
+
+        summaries = dict(critic_summaries, **actor_summaries)
+        results_buffer.update_summaries(summaries)
+
+        if global_step % update_interval:
+            actor.update_target()
+            critic.update_target()
+
+        if global_step % save_interval:
+            actor.save_model(actor_model_path)
+            critic.save_model(critic_model_path)
+            results_buffer.add_summary(summary_writer, global_step)
+
+        states = next_states
