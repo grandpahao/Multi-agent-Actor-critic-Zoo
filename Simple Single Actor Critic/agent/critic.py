@@ -4,8 +4,9 @@ from .tfagent import TFAgent
 
 
 class Critic(TFAgent):
-    def __init__(self, lr):
+    def __init__(self, lr, discount):
         super(Critic, self).__init__(lr=lr)
+        self.discount = discount
         self.update_target()
 
     def _build_net(self):
@@ -27,6 +28,7 @@ class Critic(TFAgent):
         self.update_target_opr = self._update_target_opr()
         # given the sum of scores for the next state and reward for the transition
         trainable_variables = tf.trainable_variables('critic_accurate')
+        self.advantage = self.target - self.score
         self.loss = tf.squared_difference(self.target, self.score)
         self.train_opr = self.optimizer.minimize(
             self.loss,
@@ -50,4 +52,17 @@ class Critic(TFAgent):
         self.sess.run(self.update_target_opr)
 
     def update(self, input_batch, reward_batch, reward_batch, next_batch, done_batch):
-        next_score = self.sess.run(self.score_target)
+        next_score = self.sess.run(self.score_target, feed_dict={
+                                   self.input: next_batch})
+        target = next_score * self.discount + (1 - done_batch) * reward_batch
+        _, total_t, critic_loss, advantage = self.sess.run(
+            [
+                self.train_opr,
+                tf.train.get_global_step(), self.loss, self.advantage
+            ],
+            feed_dict={
+                self.input: input_batch,
+                self.target: target
+            }
+        )
+        return total_t, {'critic_loss': loss}, advantage
