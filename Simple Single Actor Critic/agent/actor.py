@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 
 from .tfagent import TFAgent
@@ -52,8 +53,11 @@ class Actor(TFAgent):
         )
         return total_t, {'actor_loss': actor_loss, 'actor_max_prob': actor_max_prob}
 
-    def get_prob(self, input_state):
-        return self.sess.run(self.target_action_prob, feed_dict={self.input: input_state})
+    def get_action(self, input_state, epsilon):
+        action_prob = self.sess.run(self.target_action_prob, feed_dict={
+                                    self.input: input_state})
+        action_prob = epsilon / self.n_ac + (1.0 - epsilon) * action - prob
+        return np.choice(np.arange(self.n_ac), size=1, p=action_prob)
 
     def _eval_loss(self):
         if self.n_ac > 1:
