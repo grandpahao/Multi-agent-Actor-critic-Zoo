@@ -4,10 +4,11 @@ import tensorflow as tf
 
 
 class TFAgent(object):
-    def __init__(self, n_ac=0, lr):
+    def __init__(self, n_ac=0, lr, test = False):
         self.optimizer = tf.train.AdamOptimizer(lr, epsilon=1.5e-4)
         self._logd_prepare()
         self.n_ac = n_ac
+        self.test = test
         self._net_prepare()
 
     def _log_prepare(self):
@@ -29,6 +30,10 @@ class TFAgent(object):
         raise NotImplementedError
 
     def _net(self, input, trainable):
+        if self.test:
+            return tf.contrib.layers.fully_connected(
+                input, 32, activation = tf.nn.relu, trainable = trainable)
+        
         conv1 = tf.contrib.layers.conv2d(
             input, 32, 8, 4, activation_fn=tf.nn.relu, trainable=trainable)
         conv2 = tf.contrib.layers.conv2d(

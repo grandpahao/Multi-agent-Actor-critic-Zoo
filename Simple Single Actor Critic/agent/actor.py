@@ -5,13 +5,18 @@ from .tfagent import TFAgent
 
 
 class Actor(TFAgent):
-    def __init__(self, n_ac, lr):
-        super(Actor, self).__init__(n_ac, lr)
+    def __init__(self, n_ac, lr, test=False):
+        super(Actor, self).__init__(n_ac, lr, test)
         self.update_target()
 
     def _build_net(self):
-        self.input = tf.placeholder(
-            shape=[None, 84, 84, 4], dtype=tf.float32, name='inputs')
+        if self.test:
+            self.input = tf.placeholder(
+                shape=[None, 4], dtype=tf.float32, name='inputs')
+        else:
+            self.input = tf.placeholder(
+                shape=[None, 84, 84, 4], dtype=tf.float32, name='inputs')
+
         self.action_select = tf.placeholder(
             shape=[None], dtype=tf.float32, name='selected_action')
         self.advantage = tf.placeholder(

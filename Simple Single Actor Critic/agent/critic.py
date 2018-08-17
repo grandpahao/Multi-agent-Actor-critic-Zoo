@@ -4,14 +4,19 @@ from .tfagent import TFAgent
 
 
 class Critic(TFAgent):
-    def __init__(self, lr, discount):
-        super(Critic, self).__init__(lr=lr)
+    def __init__(self, lr, discount, test=False):
+        super(Critic, self).__init__(lr=lr, test=test)
         self.discount = discount
         self.update_target()
 
     def _build_net(self):
-        self.input = tf.placeholder(
-            shape=[None, 84, 84, 4], dtype=tf.float32, name='input')
+        if self.test:
+            self.input = tf.placeholder(
+                shape=[None, 4], dtype=tf.float32, name='input')
+        else:
+            self.input = tf.placeholder(
+                shape=[None, 84, 84, 4], dtype=tf.float32, name='input')
+
         self.target = tf.placeholder(
             shape=[None], dtype=tf.float32, name='target')
 
