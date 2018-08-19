@@ -16,4 +16,4 @@ if __name__ == '__main__':
 
     single_ac_train(env, actor, critic, config.base_path,
                     config.batch_size, config.epsilon, config.save_interval, config.update_interval,
-                    config.learning_starts, config.memory_size, config.total_iter)
+                    config.learning_starts, config.memory_size, config.max_epoch, config.max_iter)

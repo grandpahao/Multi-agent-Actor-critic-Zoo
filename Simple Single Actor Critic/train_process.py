@@ -15,7 +15,8 @@ def single_ac_train(env,
                     update_interval=1000,
                     learning_starts=200,
                     memory_size=500000,
-                    total_iter=10000000):
+                    max_epoch=100000,
+                    max_iter=10000):
     event_path = os.path.join(store_path, 'actor_events')
     actor_model_path = os.path.join(store_path, 'actor_models')
     critic_model_path = os.path.join(store_path, 'critic_models')
@@ -39,28 +40,36 @@ def single_ac_train(env,
 
     states = env.reset()
 
-    for i in range(num_iterations):
-        actions = actor.get_action(states, epsilon)
-        next_states, rewards, dones, info = env.step(actions)
-        memory_buffer.extend(zip(states, actions, rewards, next_states, dones))
+    for i in range(max_epoch):
+        states = env.reset()
+        total_reward = 0.0
+        for j in range(num_iterations):
+            actions = actor.get_action(states, epsilon)
+            next_states, rewards, dones, info = env.step(actions)
+            total_reward += rewards
+            memory_buffer.extend(
+                zip(states, actions, rewards, next_states, dones))
+            cur_batch, action_batch, reward_batch, next_batch, done_batch = memory_buffer.critic_sample(
+                batch_size)
+            global_step, critic_summaries, ad_batch = critic.update(
+                cur_batch, action_batch, reward_batch, next_batch, done_batch)
 
-        cur_states, actions, rewards, next_states, dones = memory_buffer.critic_sample(
-            batch_size)
-        global_step, critic_summaries, advantages = critic.update(
-            cur_states, actions, rewards, next_states, dones)
+            _, actor_summaries = actor.update(
+                cur_batch, action_batch, ad_batch)
 
-        _, actor_summaries = actor.update(cur_states, actions, advantages)
+            summaries = dict(critic_summaries, **actor_summaries)
+            results_buffer.update_summaries(summaries)
 
-        summaries = dict(critic_summaries, **actor_summaries)
-        results_buffer.update_summaries(summaries)
+            if global_step % update_interval:
+                actor.update_target()
+                critic.update_target()
 
-        if global_step % update_interval:
-            actor.update_target()
-            critic.update_target()
+            if global_step % save_interval:
+                actor.save_model(actor_model_path)
+                critic.save_model(critic_model_path)
+                results_buffer.add_summary(summary_writer, global_step)
 
-        if global_step % save_interval:
-            actor.save_model(actor_model_path)
-            critic.save_model(critic_model_path)
-            results_buffer.add_summary(summary_writer, global_step)
-
-        states = next_states
+            if dones:
+                print("Epoch {} earns a reward of {}".format(i, total_reward))
+            else:
+                states = next_states

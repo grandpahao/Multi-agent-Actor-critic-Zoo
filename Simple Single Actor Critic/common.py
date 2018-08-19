@@ -9,4 +9,8 @@ class Config(object):
         self.update_interval = 1000
         self.learning_starts = 200
         self.memory_size = 500000
-        self.total_iter = 10000000
+        self.max_epoch = 100000
+        self.max_iter = 10000
+
+
+config = Config()
