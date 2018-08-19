@@ -11,7 +11,7 @@ if __name__ == '__main__':
     # env = atari_env(config.game_name)
 
     actor = get_agent('actor', n_ac=config.n_ac, lr=config.lr, test=True)
-    critic = get_critic('critic', lr=config.lr,
+    critic = get_agent('critic', lr=config.lr,
                         discount=config.discount, test=True)
 
     single_ac_train(env, actor, critic, config.base_path,

@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+import numpy as np
 from .tfagent import TFAgent
 
 
@@ -11,24 +11,23 @@ class Critic(TFAgent):
 
     def _build_net(self):
         if self.test:
-            self.input = tf.placeholder(
-                shape=[None, 4], dtype=tf.float32, name='input')
+            input_shape = [None, 4]
         else:
-            self.input = tf.placeholder(
-                shape=[None, 84, 84, 4], dtype=tf.float32, name='input')
-
-        self.target = tf.placeholder(
-            shape=[None], dtype=tf.float32, name='target')
+            input_shape = [None, 84, 84, 4]
+        self.input = tf.placeholder(shape = input_shape, dtype=tf.float32, name='inputs')
+        self.target = tf.placeholder(shape=[None], dtype=tf.float32, name='target')
 
         with tf.variable_scope('critic_accurate'):
             fc1 = self._net(self.input, trainable=True)
-            self.score = tf.contrib.layers.fully_connected(
+            score = tf.contrib.layers.fully_connected(
                 fc1, 1, trainable=True)
+            self.score = tf.reshape(score, [-1])
 
         with tf.variable_scope('critic_target'):
             fc1_target = self._net(self.input, trainable=False)
-            self.score_target = tf.contrib.layers.fully_connected(
+            score_target = tf.contrib.layers.fully_connected(
                 fc1_target, 1, trainable=False)
+            self.score_target = tf.reshape(score_target, [-1])
 
         self.update_target_opr = self._update_target_opr()
         # given the sum of scores for the next state and reward for the transition
@@ -42,9 +41,9 @@ class Critic(TFAgent):
         )
 
     def _update_target_opr(self):
-        params = tf.trainable_variable('ciritc_accurate')
+        params = tf.trainable_variables('ciritc_accurate')
         params = sorted(params, key=lambda v: v.name)
-        target_params = tf.global_variable('critic_target')
+        target_params = tf.global_variables('critic_target')
         target_params = sorted(target_params, key=lambda v: v.name)
 
         update_opr = []
@@ -56,10 +55,12 @@ class Critic(TFAgent):
     def update_target(self):
         self.sess.run(self.update_target_opr)
 
-    def update(self, input_batch, reward_batch, reward_batch, next_batch, done_batch):
+    def update(self, input_batch, reward_batch, next_batch, done_batch):
+        from IPython import embed
         next_score = self.sess.run(self.score_target, feed_dict={
                                    self.input: next_batch})
         target = next_score * self.discount + (1 - done_batch) * reward_batch
+        # embed()
         _, total_t, critic_loss, advantage = self.sess.run(
             [
                 self.train_opr,
@@ -70,4 +71,4 @@ class Critic(TFAgent):
                 self.target: target
             }
         )
-        return total_t, {'critic_loss': loss}, advantage
+        return total_t, {'critic_loss': critic_loss}, advantage
