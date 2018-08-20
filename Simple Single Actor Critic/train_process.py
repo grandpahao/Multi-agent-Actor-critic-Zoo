@@ -1,8 +1,10 @@
 import os
+from collections import deque
 
-from tensorboardX import SummaryWriter
 import numpy as np
-from utils import Memory, ResultsBuffer, checkpath
+from tensorboardX import SummaryWriter
+
+from utils import Episode_Record, Memory, ResultsBuffer, checkpath
 
 
 def single_ac_train(env,
@@ -14,7 +16,7 @@ def single_ac_train(env,
                     save_interval=1000,
                     update_interval=1000,
                     learning_starts=200,
-                    memory_size=500000,
+                    memory_size=50000,
                     max_epoch=100000,
                     max_iter=10000):
     event_path = os.path.join(store_path, 'actor_events')
@@ -32,44 +34,47 @@ def single_ac_train(env,
     results_buffer = ResultsBuffer()
 
     states = env.reset()
-    for i in range(learning_starts):
-        actions = actor.get_action(states, epsilon)
-        next_states, rewards, dones, info = env.step(actions)
-        memory_buffer.extend([(states, actions, rewards, next_states, dones)])
-        states = next_states
-
-    states = env.reset()
 
     for i in range(max_epoch):
         states = env.reset()
-        total_reward = 0.0
-        for j in range(max_iter):
+        episode_buffer = Episode_Record()
+        episode_buffer.append('state', states)
+        while True:
             actions = actor.get_action(states, epsilon)
             next_states, rewards, dones, info = env.step(actions)
-            total_reward += rewards
-            memory_buffer.extend([(states, actions, rewards, next_states, dones)])
-            cur_batch, action_batch, reward_batch, next_batch, done_batch = memory_buffer.sample(batch_size)
 
-            global_step, critic_summaries, ad_batch = critic.update(
-                cur_batch, reward_batch, next_batch, done_batch)
-
-            actor_summaries = actor.update(
-                cur_batch, action_batch, ad_batch)
-
-            summaries = dict(critic_summaries, **actor_summaries)
-            results_buffer.update_summaries(summaries)
-
-            if global_step % update_interval:
-                actor.update_target()
-                critic.update_target()
-
-            if global_step % save_interval:
-                actor.save_model(actor_model_path, global_step)
-                critic.save_model(critic_model_path, global_step)
-                results_buffer.add_summary(summary_writer, global_step)
+            episode_buffer.append('reward', rewards)
+            episode_buffer.append('action', actions)
 
             if dones:
-                print("Epoch {} earns a reward of {}".format(i, total_reward))
+                state_batch, reward_batch, action_batch = episode_buffer.dump()
+
+                score_batch = critic.get_target(state_batch)
+                target_batch = np.zeros_like(reward_batch)
+                target_batch[-1] = reward_batch[-1]
+                for idx in range(len(reward_batch) - 2, -1, -1):
+                    target_batch[idx] = reward_batch[idx] + \
+                        0.95 * target_batch[idx + 1]
+                global_step, critic_summary, advantage_batch = critic.update(
+                    state_batch, target_batch)
+
+                # advantage_batch = np.zeros_like(reward_batch)
+                # R = 0.0
+                # for idx in range(len(reward_batch) - 1, -1, -1):
+                #     R = R * 0.95 + reward_batch[idx]
+                #     advantage_batch[idx] = R
+                # advantage_batch -= np.mean(advantage_batch)
+                # advantage_batch /= np.std(advantage_batch)
+                actor_summary = actor.update(
+                    state_batch, action_batch, advantage_batch)
+                # results_buffer.add_summary(summary_writer, global_step)
+                actor.update_target()
+                critic.update_target()
+                # actor.save_model(actor_model_path, global_step)
+                # critic.save_model(critic_model_path, global_step)
+                print("Epoch {} earns a reward of {}.".format(
+                    i, np.sum(reward_batch)))
                 break
             else:
+                episode_buffer.append('state', next_states)
                 states = next_states

@@ -12,7 +12,8 @@ class Config(object):
         self.max_epoch = 100000
         self.max_iter = 10000
         self.n_ac = 2
-        self.lr = 1e-4
+        self.lr = 1e-3
         self.discount = 0.99
+
 
 config = Config()

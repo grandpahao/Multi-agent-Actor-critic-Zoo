@@ -1,5 +1,6 @@
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
+
 from .tfagent import TFAgent
 
 
@@ -14,8 +15,10 @@ class Critic(TFAgent):
             input_shape = [None, 4]
         else:
             input_shape = [None, 84, 84, 4]
-        self.input = tf.placeholder(shape = input_shape, dtype=tf.float32, name='inputs')
-        self.target = tf.placeholder(shape=[None], dtype=tf.float32, name='target')
+        self.input = tf.placeholder(
+            shape=input_shape, dtype=tf.float32, name='inputs')
+        self.target = tf.placeholder(
+            shape=[None], dtype=tf.float32, name='target')
 
         with tf.variable_scope('critic_accurate'):
             fc1 = self._net(self.input, trainable=True)
@@ -33,12 +36,17 @@ class Critic(TFAgent):
         # given the sum of scores for the next state and reward for the transition
         trainable_variables = tf.trainable_variables('critic_accurate')
         self.advantage = self.target - self.score
-        self.loss = tf.squared_difference(self.target, self.score)
+        self.loss = tf.reduce_mean(
+            tf.squared_difference(self.score, self.target))
+
         self.train_opr = self.optimizer.minimize(
             self.loss,
             global_step=tf.train.get_global_step(),
             var_list=trainable_variables
         )
+
+    def get_target(self, state_batch):
+        return self.sess.run(self.score_target, feed_dict={self.input: state_batch})
 
     def _update_target_opr(self):
         params = tf.trainable_variables('ciritc_accurate')
@@ -55,20 +63,15 @@ class Critic(TFAgent):
     def update_target(self):
         self.sess.run(self.update_target_opr)
 
-    def update(self, input_batch, reward_batch, next_batch, done_batch):
-        from IPython import embed
-        next_score = self.sess.run(self.score_target, feed_dict={
-                                   self.input: next_batch})
-        target = next_score * self.discount + (1 - done_batch) * reward_batch
-        # embed()
+    def update(self, state_batch, target_batch):
         _, total_t, critic_loss, advantage = self.sess.run(
             [
                 self.train_opr,
                 tf.train.get_global_step(), self.loss, self.advantage
             ],
             feed_dict={
-                self.input: input_batch,
-                self.target: target
+                self.input: state_batch,
+                self.target: target_batch
             }
         )
         return total_t, {'critic_loss': critic_loss}, advantage

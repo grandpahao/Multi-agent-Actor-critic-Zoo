@@ -4,7 +4,7 @@ import tensorflow as tf
 
 
 class TFAgent(object):
-    def __init__(self, n_ac=0, lr=1e-4, test = False):
+    def __init__(self, n_ac=0, lr=1e-4, test=False):
         self.optimizer = tf.train.AdamOptimizer(lr, epsilon=1.5e-4)
         self._log_prepare()
         self.n_ac = n_ac
@@ -31,9 +31,12 @@ class TFAgent(object):
 
     def _net(self, input, trainable):
         if self.test:
-            return tf.contrib.layers.fully_connected(
-                input, 32, trainable = trainable)
-        
+            fc1 = tf.contrib.layers.fully_connected(
+                input, 10, activation_fn=tf.nn.selu, trainable=trainable)
+            fc2 = tf.contrib.layers.fully_connected(
+                fc1, 10, activation_fn=tf.nn.selu, trainable=trainable)
+            return fc2
+
         conv1 = tf.contrib.layers.conv2d(
             input, 32, 8, 4, activation_fn=tf.nn.relu, trainable=trainable)
         conv2 = tf.contrib.layers.conv2d(
@@ -41,9 +44,9 @@ class TFAgent(object):
         conv3 = tf.contrib.layers.conv2d(
             conv2, 64, 3, 1, activation_fn=tf.nn.relu, trainable=trainable)
 
-        flat1=tf.contrib.layers.flatten(conv3)
-        fc1=tf.contrib.layers.fully_connected(
-            flat1, 256, trainable = trainable)
+        flat1 = tf.contrib.layers.flatten(conv3)
+        fc1 = tf.contrib.layers.fully_connected(
+            flat1, 256, trainable=trainable)
         return fc1
 
     def save_model(self, outdir, cur_step):
@@ -52,11 +55,11 @@ class TFAgent(object):
             self.sess,
             os.path.join(outdir, 'model'),
             cur_step,
-            write_meta_graph = False
+            write_meta_graph=False
         )
 
     def load_model(self, outdir):
-        latest_log=tf.train.latest_checkpoint(outdir)
+        latest_log = tf.train.latest_checkpoint(outdir)
         if latest_log:
             print("Loading model from {}".format(latest_log))
             self.saver.restore(self.sess, latest_log)

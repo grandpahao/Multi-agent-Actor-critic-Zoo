@@ -26,6 +26,24 @@ class Memory(object):
         return map(np.array, zip(*samples))
 
 
+class Episode_Record(object):
+    def __init__(self):
+        self.states = deque()
+        self.actions = deque()
+        self.rewards = deque()
+
+    def append(self, type, transition):
+        if type == 'state':
+            self.states.append(transition)
+        elif type == 'action':
+            self.actions.append(transition)
+        elif type == 'reward':
+            self.rewards.append(transition)
+
+    def dump(self):
+        return map(np.array, [self.states, self.rewards, self.actions])
+
+
 class ResultsBuffer(object):
     def __init__(self, rewards_history=[]):
         self.buffer = defaultdict(list)
